@@ -92,8 +92,8 @@ unknown value fails with the live list printed.
   streamed agy output (run, review) passes through verbatim.
 - Exit codes: 0 success, 1 runtime failure (agy error, quota, auth), 64 usage
   error, 127 agy not installed.
-- Known agy failure modes (quota exhaustion, auth expiry) are detected from
-  agy stderr/log output and surfaced as human-readable `error` fields.
+- v0.1 surfaces agy's raw output/exit codes without pattern-detecting quota or
+  auth failures; a future version may classify known failure modes.
 
 ## Job registry
 
@@ -180,3 +180,4 @@ file, returns `{conversationId}` for use with `/agy:resume`.
   later if wanted).
 - Windows support (macOS/Linux/WSL only, matching agy itself).
 - Any persistent daemon/broker.
+- Quota/auth failure classification (raw output is surfaced instead).
