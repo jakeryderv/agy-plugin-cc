@@ -1,0 +1,9 @@
+{
+  "name": "agy",
+  "version": "0.1.0",
+  "description": "Use the Google Antigravity CLI (agy) from Claude Code — /agy:setup, /agy:review, /agy:adversarial-review, /agy:delegate (with background jobs), /agy:status, /agy:result, /agy:cancel, /agy:resume, /agy:transfer, /agy:models.",
+  "author": {
+    "name": "jakeryderv",
+    "url": "https://github.com/jakeryderv"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "agy-plugin-cc",
+  "owner": {
+    "name": "jakeryderv",
+    "url": "https://github.com/jakeryderv"
+  },
+  "plugins": [
+    {
+      "name": "agy",
+      "source": "./plugins/agy",
+      "description": "Use the Google Antigravity CLI (agy) from Claude Code — delegate tasks, run cross-model reviews, manage background jobs, resume conversations."
+    }
+  ]
+}
