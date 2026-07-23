@@ -1,0 +1,36 @@
+#!/usr/bin/env node
+// Minimal stand-in for the real agy CLI, used by the test suite only.
+import { appendFileSync } from 'node:fs';
+
+const argv = process.argv.slice(2);
+
+if (argv[0] === '--version') {
+  console.log('agy version 9.9.9-fake');
+  process.exit(0);
+}
+if (argv[0] === 'models') {
+  console.log('fake-flash\nfake-pro\nfake-opus');
+  process.exit(0);
+}
+
+let prompt = '';
+let model = 'default';
+let mode = 'normal';
+let logFile = null;
+for (let i = 0; i < argv.length; i++) {
+  const a = argv[i];
+  if (a === '-p' || a === '--print') prompt = argv[++i] ?? '';
+  else if (a === '--model') model = argv[++i];
+  else if (a === '--log-file') logFile = argv[++i];
+  else if (a === '--sandbox') mode = 'sandbox';
+  else if (a === '--dangerously-skip-permissions') mode = 'full-access';
+  else if (a === '--effort' || a === '--conversation' || a === '--print-timeout') i++;
+  // --continue and unknown flags: ignore
+}
+
+const sleepMs = Number(process.env.FAKE_AGY_SLEEP_MS || 0);
+setTimeout(() => {
+  if (logFile) appendFileSync(logFile, 'INFO conversation_id=conv-fake-1234\n');
+  console.log(`fake-agy: ${prompt} [model=${model}] [mode=${mode}]`);
+  process.exit(prompt.includes('FAIL') ? 3 : 0);
+}, sleepMs);
