@@ -24,11 +24,11 @@ test('latestSession: no sessions -> null', () => {
   assert.equal(latestSession('/nowhere'), null);
 });
 
-test('latestSession prefers cwd match, else newest', () => {
+test('latestSession prefers cwd match, null when no match', () => {
   writeSession('s-old', '/proj/a', '2026-07-01T00:00:00Z');
   writeSession('s-new', '/proj/b', '2026-07-22T00:00:00Z');
   assert.equal(latestSession('/proj/a').sessionId, 's-old');
-  assert.equal(latestSession('/proj/zzz').sessionId, 's-new');
+  assert.equal(latestSession('/proj/zzz'), null);
 });
 
 test('latestSession prefers CLAUDE_SESSION_ID when set', () => {

@@ -20,8 +20,8 @@ export function latestSession(cwd) {
   }
   if (!sessions.length) return null;
   const pool = sessions.filter((s) => s.cwd === cwd);
-  const pick = (pool.length ? pool : sessions)
-    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+  if (!pool.length) return null;
+  const pick = pool.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
   return pick[0];
 }
 
