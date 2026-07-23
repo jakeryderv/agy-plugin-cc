@@ -496,7 +496,7 @@ git commit -m "feat: agy adapter (discovery, auth, models, arg building) + fake-
   - `getJob(id) -> meta` (throws UsageError if unknown)
   - `listJobs() -> Array<meta & { state }>` newest first; prunes job dirs older than 7 days
   - `jobResult(id) -> { id, state, exitCode: number|null, output: string, conversationId: string|null }`
-  - `cancelJob(id) -> { id, state }` — SIGTERM to process group, SIGKILL after 5s grace, persists `cancelled: true`
+  - `cancelJob(id) -> Promise<{ id, state }>` — async; SIGTERM to process group, SIGKILL after 5s grace, persists `cancelled: true`
   - `extractConversationId(text) -> string|null` — last match of `/conversation[_ -]?id[^a-z0-9-]*([a-z0-9][a-z0-9-]{3,})/gi`
 
 - [ ] **Step 1: Write the failing test**
@@ -562,7 +562,7 @@ test('cancelJob kills a running job', async () => {
   delete process.env.FAKE_AGY_SLEEP_MS;
   await sleep(200);
   assert.equal(jobState(getJob(meta.id)), 'running');
-  const r = cancelJob(meta.id);
+  const r = await cancelJob(meta.id);
   assert.equal(r.state, 'cancelled');
   assert.equal(jobState(getJob(meta.id)), 'cancelled');
 });
@@ -736,7 +736,9 @@ export function jobResult(id) {
   };
 }
 
-export function cancelJob(id) {
+// Async so the event loop keeps running during the grace wait — a blocked
+// loop cannot reap the dead child, and kill(pid, 0) reports zombies alive.
+export async function cancelJob(id) {
   const meta = getJob(id);
   if (jobState(meta) === 'running') {
     try {
@@ -744,7 +746,7 @@ export function cancelJob(id) {
     } catch { /* group may be gone */ }
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline && pidAlive(meta.pid)) {
-      execSync('sleep 0.1');
+      await new Promise((r) => setTimeout(r, 100));
     }
     if (pidAlive(meta.pid)) {
       try {
@@ -1393,7 +1395,7 @@ try {
       `unknown subcommand "${subcommand ?? ''}". Known: ${Object.keys(COMMANDS).join(', ')}`,
     );
   }
-  handler(rest);
+  await handler(rest); // top-level await: handlers may be async (job-cancel)
 } catch (err) {
   if (err instanceof UsageError) {
     process.stderr.write(`${err.message}\n`);
@@ -1554,10 +1556,10 @@ function cmdJobResult(argv) {
   emit(jobResult(positional[0]));
 }
 
-function cmdJobCancel(argv) {
+async function cmdJobCancel(argv) {
   const { positional } = parseArgs(argv, {});
   if (!positional[0]) throw new UsageError('job-cancel requires a job id');
-  emit(cancelJob(positional[0]));
+  emit(await cancelJob(positional[0]));
 }
 ```
 
