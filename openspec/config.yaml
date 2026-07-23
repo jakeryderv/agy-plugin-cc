@@ -1,0 +1,32 @@
+schema: spec-driven
+
+context: |
+  Claude Code plugin wrapping the Google Antigravity CLI (agy), modeled on
+  openai/codex-plugin-cc. Zero-dependency Node.js >= 18.18 companion runtime
+  (plugins/agy/scripts/), plugin surface in commands/agents/hooks markdown.
+  Tests: node --test with a fake-agy stub — tests must never invoke real agy
+  (AGY_BIN + temp AGY_PLUGIN_STATE_DIR). CI runs Node 18 and 24; keep both
+  green. Safety invariants: sandbox-by-default for all headless agy runs;
+  --full-access only ever user-passed; never touch agy credentials.
+  Pre-OpenSpec history: docs/superpowers/ holds the original v0.1 spec and
+  plan (frozen, historical); known minor issues ledger in
+  .superpowers/sdd/progress.md.
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+# Example:
+#   context: |
+#     Tech stack: TypeScript, React, Node.js
+#     We use conventional commits
+#     Domain: e-commerce platform
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
