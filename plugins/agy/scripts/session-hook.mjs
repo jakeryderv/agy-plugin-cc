@@ -25,3 +25,4 @@ process.stdin.on('end', () => {
   } catch { /* never block session start */ }
   process.exit(0);
 });
+process.stdin.on('error', () => process.exit(0));
