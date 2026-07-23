@@ -1,5 +1,5 @@
 import {
-  mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync,
+  mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, statSync,
 } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -17,6 +17,10 @@ const jobDir = (id) => join(jobsRoot(), id);
 const metaPath = (id) => join(jobDir(id), 'meta.json');
 
 const shq = (s) => `'${String(s).replace(/'/g, `'\\''`)}'`;
+
+// Grace period before pruning a job dir with missing/corrupt meta.json —
+// covers the window in startJob() between mkdirSync and the meta write.
+const CORRUPT_META_GRACE_MS = 3600 * 1000;
 
 export function startJob(bin, task, opts = {}) {
   const id = `job-${Date.now()}-${randomBytes(2).toString('hex')}`;
@@ -91,7 +95,17 @@ export function listJobs() {
     let meta;
     try {
       meta = getJob(id);
-    } catch {
+    } catch (err) {
+      // Only missing meta (UsageError) or unparseable meta (SyntaxError) mark
+      // a dir as garbage; a transient read error must not delete a valid job.
+      if (err instanceof UsageError || err instanceof SyntaxError) {
+        try {
+          const s = statSync(jobDir(id));
+          if (s.isDirectory() && s.mtimeMs < Date.now() - CORRUPT_META_GRACE_MS) {
+            rmSync(jobDir(id), { recursive: true, force: true });
+          }
+        } catch { /* pruning failures must not break listing */ }
+      }
       continue;
     }
     if (new Date(meta.createdAt).getTime() < cutoff) {

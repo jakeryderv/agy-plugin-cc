@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
+import {
+  mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync, utimesSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -84,6 +86,38 @@ test('listJobs returns newest first and prunes ancient jobs', async () => {
   assert.equal(jobs[0].id, fresh.id);
   assert.ok(!jobs.some((j) => j.id === old.id));
   assert.ok(!existsSync(dir));
+});
+
+test('listJobs prunes corrupt/missing-meta dirs past grace period, spares fresh ones', async () => {
+  const root = join(stateDir(), 'jobs');
+  const stale = new Date(Date.now() - 2 * 3600 * 1000); // past the 1h grace period
+
+  const corrupt = join(root, 'job-corrupt-meta');
+  mkdirSync(corrupt, { recursive: true });
+  writeFileSync(join(corrupt, 'meta.json'), 'not json {');
+  utimesSync(corrupt, stale, stale);
+
+  const metaless = join(root, 'job-missing-meta');
+  mkdirSync(metaless, { recursive: true });
+  utimesSync(metaless, stale, stale);
+
+  const freshMetaless = join(root, 'job-fresh-no-meta');
+  mkdirSync(freshMetaless, { recursive: true });
+
+  const strayFile = join(root, 'stray.txt');
+  writeFileSync(strayFile, 'not a job');
+  utimesSync(strayFile, stale, stale);
+
+  const valid = startJob(FAKE, 'valid job', {});
+  await waitDone(valid.id);
+
+  const jobs = listJobs();
+  assert.ok(!existsSync(corrupt));
+  assert.ok(!existsSync(metaless));
+  assert.ok(existsSync(freshMetaless));
+  assert.ok(existsSync(strayFile));
+  assert.ok(jobs.some((j) => j.id === valid.id));
+  assert.ok(!jobs.some((j) => ['job-corrupt-meta', 'job-missing-meta', 'job-fresh-no-meta'].includes(j.id)));
 });
 
 test('getJob unknown id throws', async () => {
