@@ -2,11 +2,14 @@
 // agy-companion — the single entrypoint every /agy:* command invokes.
 // Subcommands added in later tasks extend the dispatch table at the bottom.
 import { spawnSync } from 'node:child_process';
+import { mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseArgs, UsageError } from './lib/args.mjs';
 import {
   findAgy, authStatus, agyVersion, listModels, validateModel, validateEffort, buildAgyArgs,
 } from './lib/agy.mjs';
-import { startJob, listJobs, getJob, jobState, jobResult, cancelJob } from './lib/jobs.mjs';
+import { startJob, listJobs, getJob, jobState, jobResult, cancelJob, stateDir, extractConversationId } from './lib/jobs.mjs';
+import { latestSession, extractTurns, buildHandoffPrompt } from './lib/transcript.mjs';
 
 const INSTALL_HINT =
   'agy is not installed. Install with: curl -fsSL https://antigravity.google/cli/install.sh | bash';
@@ -175,6 +178,39 @@ async function cmdJobCancel(argv) {
   emit(await cancelJob(positional[0]));
 }
 
+function cmdTransfer(argv) {
+  const { flags } = parseArgs(argv, { model: 'value', effort: 'value' });
+  const bin = requireAgy();
+  const opts = taskFlags(flags, bin);
+  const session = latestSession(process.cwd());
+  if (!session || !existsSync(session.transcriptPath)) {
+    process.stderr.write(
+      'no Claude session transcript is known yet. The SessionStart hook records it; start a fresh session (or /reload-plugins) and try again.\n',
+    );
+    process.exit(1);
+  }
+  const turns = extractTurns(session.transcriptPath, {});
+  if (!turns.length) {
+    process.stderr.write('the session transcript has no text turns to transfer.\n');
+    process.exit(1);
+  }
+  const prompt = buildHandoffPrompt(turns, session.cwd);
+  const logDir = join(stateDir(), 'transfer');
+  mkdirSync(logDir, { recursive: true });
+  const logFile = join(logDir, `transfer-${Date.now()}.log`);
+  const r = spawnSync(bin, buildAgyArgs({
+    prompt, ...opts, fullAccess: false, sandbox: true, logFile,
+  }), { encoding: 'utf8' });
+  if (r.status !== 0) {
+    process.stderr.write(r.stderr || `agy exited ${r.status}\n`);
+    process.exit(r.status ?? 1);
+  }
+  const conversationId = existsSync(logFile)
+    ? extractConversationId(readFileSync(logFile, 'utf8'))
+    : null;
+  emit({ conversationId, turns: turns.length, response: (r.stdout || '').trim() });
+}
+
 const COMMANDS = {
   setup: () => cmdSetup(),
   models: () => cmdModels(),
@@ -184,6 +220,7 @@ const COMMANDS = {
   'job-status': (argv) => cmdJobStatus(argv),
   'job-result': (argv) => cmdJobResult(argv),
   'job-cancel': (argv) => cmdJobCancel(argv),
+  transfer: (argv) => cmdTransfer(argv),
 };
 
 const [subcommand, ...rest] = process.argv.slice(2);
