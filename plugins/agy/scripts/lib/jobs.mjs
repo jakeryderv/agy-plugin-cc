@@ -134,19 +134,21 @@ export function jobResult(id) {
 // loop cannot reap the dead child, and kill(pid, 0) reports zombies alive.
 export async function cancelJob(id) {
   const meta = getJob(id);
-  if (jobState(meta) === 'running') {
+  const state = jobState(meta);
+  if (state !== 'running') {
+    return { id, state };
+  }
+  try {
+    process.kill(-meta.pid, 'SIGTERM');
+  } catch { /* group may be gone */ }
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline && pidAlive(meta.pid)) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  if (pidAlive(meta.pid)) {
     try {
-      process.kill(-meta.pid, 'SIGTERM');
-    } catch { /* group may be gone */ }
-    const deadline = Date.now() + 5000;
-    while (Date.now() < deadline && pidAlive(meta.pid)) {
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    if (pidAlive(meta.pid)) {
-      try {
-        process.kill(-meta.pid, 'SIGKILL');
-      } catch { /* already dead */ }
-    }
+      process.kill(-meta.pid, 'SIGKILL');
+    } catch { /* already dead */ }
   }
   meta.cancelled = true;
   writeFileSync(metaPath(id), JSON.stringify(meta, null, 2));

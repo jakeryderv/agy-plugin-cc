@@ -61,6 +61,15 @@ test('cancelJob kills a running job', async () => {
   assert.equal(jobState(getJob(meta.id)), 'cancelled');
 });
 
+test('cancelJob on a finished job preserves its terminal state', async () => {
+  const meta = startJob(FAKE, 'quick task', {});
+  await waitDone(meta.id);
+  const r = await cancelJob(meta.id);
+  assert.equal(r.state, 'done');
+  assert.equal(jobState(getJob(meta.id)), 'done');
+  assert.equal(jobResult(meta.id).exitCode, 0);
+});
+
 test('listJobs returns newest first and prunes ancient jobs', async () => {
   const old = startJob(FAKE, 'ancient', {});
   await waitDone(old.id);
