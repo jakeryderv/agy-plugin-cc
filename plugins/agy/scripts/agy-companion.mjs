@@ -39,6 +39,7 @@ function taskFlags(flags, bin) {
 
 function streamAgy(bin, agyArgs) {
   const r = spawnSync(bin, agyArgs, { stdio: 'inherit' });
+  if (r.error) process.stderr.write(`${r.error.message}\n`);
   process.exit(r.status ?? 1);
 }
 
@@ -54,19 +55,18 @@ function cmdSetup() {
     });
     return;
   }
-  const auth = authStatus();
+  const authHint = authStatus();
   const models = listModels(bin);
-  const ready = auth !== 'missing' && models !== null;
+  const authWorking = models !== null;
+  const ready = authWorking;
   emit({
     ready,
     agy: { available: true, path: bin, version: agyVersion(bin) },
-    auth: { status: auth },
+    auth: { status: authWorking && authHint === 'missing' ? 'keyring' : authHint, working: authWorking },
     models: models ? { count: models.length } : null,
     error: ready
       ? null
-      : auth === 'missing'
-        ? 'agy is not authenticated. Run `agy` once interactively, or set ANTIGRAVITY_API_KEY.'
-        : 'could not list models from agy.',
+      : 'agy did not respond to `agy models` — check that it is authenticated (run `agy` once interactively, or set ANTIGRAVITY_API_KEY).',
   });
 }
 
@@ -202,7 +202,7 @@ function cmdTransfer(argv) {
     prompt, ...opts, fullAccess: false, sandbox: true, logFile,
   }), { encoding: 'utf8' });
   if (r.status !== 0) {
-    process.stderr.write(r.stderr || `agy exited ${r.status}\n`);
+    process.stderr.write(r.stderr || r.error?.message || `agy exited ${r.status}\n`);
     process.exit(r.status ?? 1);
   }
   const conversationId = existsSync(logFile)
