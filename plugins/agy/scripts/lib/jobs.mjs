@@ -3,7 +3,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { spawn, execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { buildAgyArgs } from './agy.mjs';
 import { UsageError } from './args.mjs';
@@ -130,7 +130,9 @@ export function jobResult(id) {
   };
 }
 
-export function cancelJob(id) {
+// Async so the event loop keeps running during the grace wait — a blocked
+// loop cannot reap the dead child, and kill(pid, 0) reports zombies alive.
+export async function cancelJob(id) {
   const meta = getJob(id);
   if (jobState(meta) === 'running') {
     try {
@@ -138,7 +140,7 @@ export function cancelJob(id) {
     } catch { /* group may be gone */ }
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline && pidAlive(meta.pid)) {
-      execSync('sleep 0.1');
+      await new Promise((r) => setTimeout(r, 100));
     }
     if (pidAlive(meta.pid)) {
       try {

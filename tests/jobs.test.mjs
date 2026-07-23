@@ -56,7 +56,7 @@ test('cancelJob kills a running job', async () => {
   delete process.env.FAKE_AGY_SLEEP_MS;
   await sleep(200);
   assert.equal(jobState(getJob(meta.id)), 'running');
-  const r = cancelJob(meta.id);
+  const r = await cancelJob(meta.id);
   assert.equal(r.state, 'cancelled');
   assert.equal(jobState(getJob(meta.id)), 'cancelled');
 });
