@@ -37,6 +37,16 @@ test('latestSession prefers CLAUDE_SESSION_ID when set', () => {
   delete process.env.CLAUDE_SESSION_ID;
 });
 
+test('latestSession falls through when CLAUDE_SESSION_ID file is corrupt', () => {
+  writeFileSync(join(sessionsDir, 's-corrupt.json'), '{not json');
+  process.env.CLAUDE_SESSION_ID = 's-corrupt';
+  try {
+    assert.equal(latestSession('/proj/b').sessionId, 's-new');
+  } finally {
+    delete process.env.CLAUDE_SESSION_ID;
+  }
+});
+
 test('extractTurns keeps text turns, drops tool noise, respects budgets', () => {
   const lines = [
     JSON.stringify({ type: 'user', message: { content: 'first question' } }),

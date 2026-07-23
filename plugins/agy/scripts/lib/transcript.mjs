@@ -7,7 +7,9 @@ export function latestSession(cwd) {
   if (!existsSync(dir)) return null;
   const sid = process.env.CLAUDE_SESSION_ID;
   if (sid && existsSync(join(dir, `${sid}.json`))) {
-    return JSON.parse(readFileSync(join(dir, `${sid}.json`), 'utf8'));
+    try {
+      return JSON.parse(readFileSync(join(dir, `${sid}.json`), 'utf8'));
+    } catch { /* corrupt env-matched file: fall through to the scan */ }
   }
   const sessions = [];
   for (const f of readdirSync(dir)) {
