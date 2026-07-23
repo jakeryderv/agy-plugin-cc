@@ -20,4 +20,4 @@ jobs:
             node --check "$f"
           done
       - name: Tests
-        run: node --test tests/
+        run: node --test tests/*.test.mjs

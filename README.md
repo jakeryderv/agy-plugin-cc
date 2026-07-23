@@ -60,7 +60,7 @@ automatically.
 ## Development
 
 ```
-node --test tests/
+node --test tests/*.test.mjs
 ```
 
 Zero npm dependencies. Tests run against `tests/fake-agy`, never the real CLI.
