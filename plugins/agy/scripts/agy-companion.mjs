@@ -6,6 +6,7 @@ import { parseArgs, UsageError } from './lib/args.mjs';
 import {
   findAgy, authStatus, agyVersion, listModels, validateModel, validateEffort, buildAgyArgs,
 } from './lib/agy.mjs';
+import { startJob, listJobs, getJob, jobState, jobResult, cancelJob } from './lib/jobs.mjs';
 
 const INSTALL_HINT =
   'agy is not installed. Install with: curl -fsSL https://antigravity.google/cli/install.sh | bash';
@@ -131,11 +132,58 @@ function cmdReview(argv) {
   streamAgy(bin, buildAgyArgs({ prompt, ...opts, fullAccess: false, sandbox: true }));
 }
 
+function cmdJobStart(argv) {
+  const { flags, positional } = parseArgs(argv, {
+    model: 'value',
+    effort: 'value',
+    'full-access': 'flag',
+  });
+  const task = positional.join(' ').trim();
+  if (!task) throw new UsageError('job-start requires a task');
+  const bin = requireAgy();
+  const opts = taskFlags(flags, bin);
+  const meta = startJob(bin, task, opts);
+  emit({ jobId: meta.id, state: 'running', task: meta.task });
+}
+
+const jobSummary = (meta) => ({
+  id: meta.id,
+  state: meta.state ?? jobState(meta),
+  task: meta.task,
+  model: meta.model,
+  createdAt: meta.createdAt,
+});
+
+function cmdJobStatus(argv) {
+  const { positional } = parseArgs(argv, {});
+  if (positional[0]) {
+    emit(jobSummary(getJob(positional[0])));
+  } else {
+    emit({ jobs: listJobs().map(jobSummary) });
+  }
+}
+
+function cmdJobResult(argv) {
+  const { positional } = parseArgs(argv, {});
+  if (!positional[0]) throw new UsageError('job-result requires a job id');
+  emit(jobResult(positional[0]));
+}
+
+async function cmdJobCancel(argv) {
+  const { positional } = parseArgs(argv, {});
+  if (!positional[0]) throw new UsageError('job-cancel requires a job id');
+  emit(await cancelJob(positional[0]));
+}
+
 const COMMANDS = {
   setup: () => cmdSetup(),
   models: () => cmdModels(),
   run: (argv) => cmdRun(argv),
   review: (argv) => cmdReview(argv),
+  'job-start': (argv) => cmdJobStart(argv),
+  'job-status': (argv) => cmdJobStatus(argv),
+  'job-result': (argv) => cmdJobResult(argv),
+  'job-cancel': (argv) => cmdJobCancel(argv),
 };
 
 const [subcommand, ...rest] = process.argv.slice(2);
