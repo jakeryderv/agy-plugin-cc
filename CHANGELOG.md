@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.1.3 — 2026-07-25
+
+Fixed: cancelling a job that had just finished marked it `cancelled`
+permanently, hiding its output — `/agy:cancel` now reports the job's real
+outcome when it completed under its own power, and only marks jobs it actually
+stopped.
+
+Fixed: the SessionStart hook used the session id as a filename without
+checking it, so a malformed id could write outside the plugin's state
+directory. Ids that aren't already safe filenames are now refused, on both the
+write and read paths.
+
+Fixed: `/agy:transfer`'s size budget counted JavaScript string length rather
+than encoded bytes, so transcripts in non-Latin scripts were up to 3× larger
+than intended.
+
+All three were found by auditing the known-issues ledger against the running
+code, rather than by the test suite.
+
 ## 0.1.2 — 2026-07-25
 
 Fixed: `--model` and `--effort` were documented as combinable, but agy accepts
