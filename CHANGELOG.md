@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.4 — 2026-07-25
+
+Fixed: a diff too large to pass to agy failed with `spawnSync … E2BIG` and
+nothing else. Review now reports the diff's size, a per-file breakdown, and a
+narrower command that fits. agy accepts a prompt only as a command-line
+argument, so an oversized diff genuinely cannot be sent — review explains that
+rather than reviewing part of it.
+
+Added: `/agy:review -- <paths>` scopes the diff to those paths. Reviewer focus
+without `--` is unchanged.
+
+Fixed: running review outside a git repository reported "no changes to review",
+telling anyone in the wrong directory that their work was already reviewed.
+
+Fixed: an unknown model with an empty diff spent a live `agy models` call
+before noticing there was nothing to review. Local checks now run first — that
+case resolves in 28ms rather than 1.3s.
+
 ## 0.1.3 — 2026-07-25
 
 Fixed: cancelling a job that had just finished marked it `cancelled`
