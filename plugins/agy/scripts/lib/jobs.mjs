@@ -31,7 +31,6 @@ export function startJob(bin, task, opts = {}) {
     model: opts.model,
     effort: opts.effort,
     fullAccess: opts.fullAccess,
-    sandbox: true,
     logFile: join(dir, 'agy.log'),
   });
   const script = [
@@ -77,13 +76,32 @@ function pidAlive(pid) {
   }
 }
 
+// startJob's wrapper ends in `echo $? > exit-code`, and the redirection creates
+// the file before the digit lands. So the file's existence is not a verdict —
+// only a complete integer is. Returning null for anything else lets callers
+// fall through to liveness rather than reporting a successful job as failed.
+// Number.isInteger, not parseInt: parseInt('0abc') is 0, which would read a
+// garbage file as success.
+function readExitCode(id) {
+  const exitFile = join(jobDir(id), 'exit-code');
+  if (!existsSync(exitFile)) return null;
+  let raw;
+  try {
+    raw = readFileSync(exitFile, 'utf8').trim();
+  } catch {
+    return null;
+  }
+  if (raw === '') return null;
+  const code = Number(raw);
+  return Number.isInteger(code) ? code : null;
+}
+
 export function jobState(meta) {
   if (meta.cancelled) return 'cancelled';
-  const exitFile = join(jobDir(meta.id), 'exit-code');
-  if (existsSync(exitFile)) {
-    const code = parseInt(readFileSync(exitFile, 'utf8').trim(), 10);
-    return code === 0 ? 'done' : 'failed';
-  }
+  const code = readExitCode(meta.id);
+  if (code !== null) return code === 0 ? 'done' : 'failed';
+  // No status recorded yet: alive means still working, dead means it died
+  // without reporting one.
   return pidAlive(meta.pid) ? 'running' : 'failed';
 }
 
@@ -146,13 +164,10 @@ export function jobResult(id) {
   const state = jobState(meta);
   const outFile = join(jobDir(id), 'output.log');
   const logFile = join(jobDir(id), 'agy.log');
-  const exitFile = join(jobDir(id), 'exit-code');
   return {
     id,
     state,
-    exitCode: existsSync(exitFile)
-      ? parseInt(readFileSync(exitFile, 'utf8').trim(), 10)
-      : null,
+    exitCode: readExitCode(id),
     output: existsSync(outFile) ? readFileSync(outFile, 'utf8') : '',
     conversationId: existsSync(logFile)
       ? extractConversationId(readFileSync(logFile, 'utf8'))

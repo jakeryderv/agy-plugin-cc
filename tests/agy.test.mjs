@@ -35,11 +35,34 @@ test('validateEffort accepts low|medium|high only', () => {
 });
 
 test('buildAgyArgs: sandbox default vs full access', () => {
-  const s = buildAgyArgs({ prompt: 'hi', sandbox: true });
+  const s = buildAgyArgs({ prompt: 'hi' });
   assert.ok(s.includes('--sandbox'));
-  const f = buildAgyArgs({ prompt: 'hi', sandbox: true, fullAccess: true });
+  const f = buildAgyArgs({ prompt: 'hi', fullAccess: true });
   assert.ok(f.includes('--dangerously-skip-permissions'));
   assert.ok(!f.includes('--sandbox'));
+});
+
+// The access branch must be total: full access, or sandbox. Nothing a caller
+// omits may produce a headless run carrying neither flag — agy cannot prompt
+// in -p mode, so an unflagged run is an unsandboxed one.
+test('buildAgyArgs: no input yields an unsandboxed run', () => {
+  const shapes = [
+    { prompt: 'hi' },
+    { prompt: 'hi', sandbox: false },
+    { prompt: 'hi', fullAccess: false },
+    { prompt: 'hi', sandbox: false, fullAccess: false },
+    { prompt: 'hi', model: 'fake-pro', effort: 'high' },
+  ];
+  for (const opts of shapes) {
+    const args = buildAgyArgs(opts);
+    const sandboxed = args.includes('--sandbox');
+    const fullAccess = args.includes('--dangerously-skip-permissions');
+    assert.ok(
+      sandboxed !== fullAccess,
+      `exactly one access flag expected for ${JSON.stringify(opts)}, got ${JSON.stringify(args)}`,
+    );
+    assert.ok(sandboxed, `expected sandbox for ${JSON.stringify(opts)}`);
+  }
 });
 
 test('buildAgyArgs: passthrough flags and default timeout', () => {
@@ -53,4 +76,10 @@ test('buildAgyArgs: passthrough flags and default timeout', () => {
   assert.ok(a.includes('--conversation') && a.includes('conv-1'));
   assert.ok(a.includes('--log-file') && a.includes('/tmp/x.log'));
   assert.ok(a.includes('--print-timeout') && a.includes('10m'));
+});
+
+test('buildAgyArgs: full access is the only way to drop the sandbox', () => {
+  const f = buildAgyArgs({ prompt: 'hi', fullAccess: true });
+  assert.ok(!f.includes('--sandbox'));
+  assert.ok(f.includes('--dangerously-skip-permissions'));
 });

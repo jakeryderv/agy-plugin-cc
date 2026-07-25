@@ -65,8 +65,13 @@ export function buildAgyArgs(opts) {
   const args = ['-p', opts.prompt];
   if (opts.model) args.push('--model', opts.model);
   if (opts.effort) args.push('--effort', opts.effort);
+  // Total choice, deliberately: full access or sandbox, never neither. These
+  // are all headless (-p) runs, where agy cannot prompt for permission, so an
+  // invocation carrying no access flag is an unsandboxed one. There is no
+  // `sandbox` option to omit — the only way out of the sandbox is fullAccess,
+  // which only ever comes from the user.
   if (opts.fullAccess) args.push('--dangerously-skip-permissions');
-  else if (opts.sandbox) args.push('--sandbox');
+  else args.push('--sandbox');
   if (opts.continueLast) args.push('--continue');
   if (opts.conversation) args.push('--conversation', opts.conversation);
   if (opts.logFile) args.push('--log-file', opts.logFile);

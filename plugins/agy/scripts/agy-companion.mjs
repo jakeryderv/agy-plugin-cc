@@ -91,7 +91,6 @@ function cmdRun(argv) {
   streamAgy(bin, buildAgyArgs({
     prompt,
     ...opts,
-    sandbox: true,
     continueLast: Boolean(flags.continue),
     conversation: flags.conversation,
   }));
@@ -132,7 +131,7 @@ function cmdReview(argv) {
     focus ? `\nReviewer focus: ${focus}` : '',
     '\nDiff:\n```diff\n' + diff + '\n```',
   ].join('\n');
-  streamAgy(bin, buildAgyArgs({ prompt, ...opts, fullAccess: false, sandbox: true }));
+  streamAgy(bin, buildAgyArgs({ prompt, ...opts, fullAccess: false }));
 }
 
 function cmdJobStart(argv) {
@@ -199,7 +198,7 @@ function cmdTransfer(argv) {
   mkdirSync(logDir, { recursive: true });
   const logFile = join(logDir, `transfer-${Date.now()}.log`);
   const r = spawnSync(bin, buildAgyArgs({
-    prompt, ...opts, fullAccess: false, sandbox: true, logFile,
+    prompt, ...opts, fullAccess: false, logFile,
   }), { encoding: 'utf8' });
   if (r.status !== 0) {
     process.stderr.write(r.stderr || r.error?.message || `agy exited ${r.status}\n`);

@@ -4,6 +4,7 @@ import {
   mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync, utimesSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -123,6 +124,54 @@ test('listJobs prunes corrupt/missing-meta dirs past grace period, spares fresh 
 test('getJob unknown id throws', async () => {
   const { UsageError } = await import('../plugins/agy/scripts/lib/args.mjs');
   assert.throws(() => getJob('job-nope'), UsageError);
+});
+
+// startJob's wrapper ends in `echo $? > exit-code`; the redirection creates
+// the file before the digit lands. The window is microseconds, so it is
+// constructed here rather than raced — a timing-based test would be flaky and
+// would pass for the wrong reasons.
+function stageJob(id, { pid, exitCode }) {
+  const dir = join(stateDir(), 'jobs', id);
+  mkdirSync(dir, { recursive: true });
+  const meta = {
+    id, task: 'staged', model: null, pid, cwd: process.cwd(),
+    createdAt: new Date().toISOString(), cancelled: false,
+  };
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify(meta));
+  if (exitCode !== undefined) writeFileSync(join(dir, 'exit-code'), exitCode);
+  return { meta, dir };
+}
+
+test('jobState: exit-code file present but unwritten is not a verdict', () => {
+  // process.pid is alive by definition — this stands in for the job's wrapper
+  // still executing the echo.
+  const { meta, dir } = stageJob('job-race-live', { pid: process.pid, exitCode: '' });
+  assert.equal(jobState(meta), 'running');
+  assert.equal(jobResult('job-race-live').exitCode, null);
+
+  writeFileSync(join(dir, 'exit-code'), '0\n');
+  assert.equal(jobState(meta), 'done');
+  assert.equal(jobResult('job-race-live').exitCode, 0);
+});
+
+test('jobState: partial or garbage exit-code is not read as success', () => {
+  const { meta } = stageJob('job-race-garbage', { pid: process.pid, exitCode: '0abc' });
+  // parseInt would return 0 here and report a garbage file as success.
+  assert.equal(jobState(meta), 'running');
+  assert.equal(jobResult('job-race-garbage').exitCode, null);
+});
+
+test('jobState: dead process with no recorded status is failed', () => {
+  // A pid that has exited: spawn and reap a trivial process, then use its pid.
+  const dead = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
+  const { meta } = stageJob('job-race-dead', { pid: dead.pid, exitCode: '' });
+  assert.equal(jobState(meta), 'failed');
+});
+
+test('jobState: nonzero exit code still reports failed', () => {
+  const { meta } = stageJob('job-race-nonzero', { pid: process.pid, exitCode: '3\n' });
+  assert.equal(jobState(meta), 'failed');
+  assert.equal(jobResult('job-race-nonzero').exitCode, 3);
 });
 
 // Verbatim excerpt of a real agy 1.1.7 --log-file, captured from a background

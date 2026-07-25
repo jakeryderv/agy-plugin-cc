@@ -2,16 +2,12 @@
 
 Triaged at the v0.1.0 final review as acceptable to ship; each is a candidate
 `/opsx:propose` change. Remove entries as they're fixed (the fix's OpenSpec
-change is the record). Letters match the original build ledger; (a), (g), and
-(h) are already fixed.
+change is the record). Letters match the original build ledger; (a), (b), (g),
+and (h) are already fixed.
 
 Entries marked **[confirmed]** were reproduced against the real agy CLI during
 the 2026-07-25 smoke pass; the rest remain analysis-only.
 
-- **(b) exit-code file read race** — `jobState()` can read the exit-code file
-  in the window after bash creates it but before the digit lands, parsing an
-  empty string to `NaN` and reporting a transient `failed` for a job that
-  exited 0. Self-heals on the next status call.
 - **(c) permissive model validation on listModels failure** — when
   `agy models` fails, `validateModel()` accepts any model string
   (deliberate: availability outage shouldn't block runs), so typos surface as
@@ -45,13 +41,6 @@ the 2026-07-25 smoke pass; the rest remain analysis-only.
 - **extractTurns maxBytes counts UTF-16 chars** — the transfer byte budget
   measures JS string length, so multi-byte text can exceed the intended
   budget in real bytes.
-- **`buildAgyArgs()` does not enforce the sandbox default** — the function
-  emits the sandbox flag only via `else if (opts.sandbox)`, so a caller passing
-  neither `fullAccess` nor `sandbox` gets an unsandboxed headless run with no
-  error. All four current call sites pass `sandbox: true`, so the invariant in
-  `openspec/specs/sandbox-safety/spec.md` holds today — but it rests on caller
-  discipline rather than on the one function every invocation goes through.
-  Found while verifying that spec against the code.
 - **no automated end-to-end coverage of the subcommand surface** — the suite
   unit-tests `lib/` modules against the fake-agy stub; the retired v0.1 design
   doc specified a stub-driven end-to-end smoke script that was never built.
