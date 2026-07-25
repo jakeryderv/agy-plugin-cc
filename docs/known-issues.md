@@ -28,8 +28,12 @@ the 2026-07-25 smoke pass; the rest remain analysis-only.
 - **ARG_MAX ceiling on huge review diffs** — review embeds the diff in the
   agy prompt argv; multi-MB diffs can exceed the platform arg limit
   (notably lower on macOS).
-- **parseArgs flag-as-value swallowing** — `--model --sandbox` consumes
-  `--sandbox` as the model value rather than erroring.
+- **parseArgs flag-as-value swallowing** *[confirmed]* — a value flag missing
+  its value consumes the next flag as the value: `--model --effort x` takes
+  `--effort` as the model name. It does exit 64, but blames the model
+  (`unknown model "--effort"`) instead of reporting the missing value, and
+  would silently misparse if the swallowed token happened to be valid.
+  (`--sandbox`, the example previously given here, is not a companion flag.)
 - **cancel/complete race** — cancelling a job in the instant it finishes can
   mark a completed job `cancelled` (narrow window between the state check and
   SIGTERM).
