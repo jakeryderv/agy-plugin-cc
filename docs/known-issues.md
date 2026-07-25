@@ -40,6 +40,19 @@ the 2026-07-25 smoke pass; the rest remain analysis-only.
 - **pruning only runs in listJobs** — job-dir cleanup (7-day + corrupt-meta)
   triggers only on `job-status` listing calls; a user who never lists jobs
   accumulates state until they do. See `openspec/specs/job-cleanup/spec.md`.
+  The retired v0.1 design doc specified pruning on *any* `job-*` call, which is
+  arguably the better design; the narrowing was never a recorded decision.
 - **extractTurns maxBytes counts UTF-16 chars** — the transfer byte budget
   measures JS string length, so multi-byte text can exceed the intended
   budget in real bytes.
+- **`buildAgyArgs()` does not enforce the sandbox default** — the function
+  emits the sandbox flag only via `else if (opts.sandbox)`, so a caller passing
+  neither `fullAccess` nor `sandbox` gets an unsandboxed headless run with no
+  error. All four current call sites pass `sandbox: true`, so the invariant in
+  `openspec/specs/sandbox-safety/spec.md` holds today — but it rests on caller
+  discipline rather than on the one function every invocation goes through.
+  Found while verifying that spec against the code.
+- **no automated end-to-end coverage of the subcommand surface** — the suite
+  unit-tests `lib/` modules against the fake-agy stub; the retired v0.1 design
+  doc specified a stub-driven end-to-end smoke script that was never built.
+  Real-CLI coverage is `docs/smoke-test.md`, which is manual.

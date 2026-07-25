@@ -4,15 +4,34 @@ context: |
   Claude Code plugin wrapping the Google Antigravity CLI (agy), modeled on
   openai/codex-plugin-cc. Zero-dependency Node.js >= 18.18 companion runtime
   (plugins/agy/scripts/), plugin surface in commands/agents/hooks markdown.
+
+  Behaviour lives in openspec/specs/ — companion-contract, job-registry,
+  job-cleanup, conversation-id, sandbox-safety, session-transfer. There is no
+  design doc; if it isn't in specs or an active change, it isn't a decision.
+
   Tests: run exactly `node --test tests/*.test.mjs` (unquoted glob — bare
   `node --test tests/` breaks on Node >= 21, and quoting the glob breaks
   matching). Tests use a fake-agy stub and must never invoke real agy
   (AGY_BIN + temp AGY_PLUGIN_STATE_DIR). CI runs Node 18 and 24; keep both
-  green. Safety invariants: sandbox-by-default for all headless agy runs;
-  --full-access only ever user-passed; never touch agy credentials.
+  green. The stub must mirror agy's real output shapes — a stub that invents
+  its own format hides bugs the suite structurally cannot catch (see
+  docs/smoke-test.md, the pre-release checklist against the real CLI).
+
+  Constraints: zero npm dependencies, Node built-ins only. Never hardcode
+  model names — validate against live `agy models` output. State root is
+  AGY_PLUGIN_STATE_DIR, defaulting to ~/.agy-plugin. Exit codes: 0 ok,
+  1 runtime failure, 64 usage error, 127 agy not installed. Conventional
+  commit messages; no attribution trailers of any kind.
+
+  Safety invariants: sandbox-by-default for all headless agy runs;
+  --full-access only ever user-passed, never inferred or escalated to on
+  failure; never touch agy credentials.
+
+  Deliberately out of scope (v0.1 decisions, still binding): no persistent
+  daemon or broker; no Stop-hook review gate; macOS/Linux/WSL only; no
+  quota/auth failure classification (raw agy output is surfaced instead).
+
   Known minor issues: docs/known-issues.md (each a candidate change).
-  Pre-OpenSpec history: docs/superpowers/ holds the original v0.1 spec and
-  plan (frozen, historical).
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.
