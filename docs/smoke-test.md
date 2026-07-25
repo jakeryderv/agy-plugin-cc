@@ -151,9 +151,44 @@ that gets noticed.
 cd "$(mktemp -d)" && node <repo>/plugins/agy/scripts/agy-companion.mjs review
 ```
 
-Expect a non-zero exit and an error message. Known limitation: outside a git
-repo this reports "no changes to review" even though git failed — see
-[issue #3](https://github.com/jakeryderv/agy-plugin-cc/issues/3).
+Expect a non-zero exit and an error naming the actual cause:
+
+```
+not inside a git repository — review works on a git working-tree diff.
+```
+
+**Regression check:** the message must not be "no changes to review". That
+wording was [issue #3](https://github.com/jakeryderv/agy-plugin-cc/issues/3),
+fixed in 0.1.4 — it told anyone in the wrong directory that their work had
+already been reviewed. Every precondition failure must report its own reason
+rather than collapsing into the empty-diff path.
+
+### 11. Installed-plugin wiring (after publishing)
+
+Steps 1–10 run the companion script directly from the working tree, so they
+never exercise the plugin *wiring*: `commands/*.md` frontmatter,
+`hooks/hooks.json`, and `agents/agy-runner.md`. Nothing local can — a plugin
+only wires up when installed from a marketplace. Run this once after the
+marketplace manifest is bumped, against what users actually receive.
+
+In a fresh session, confirm the release is the one installed:
+
+```bash
+grep -A3 '"agy@jakeryderv"' ~/.claude/plugins/installed_plugins.json
+```
+
+Expect the new version and a `gitCommitSha` matching the new tag's commit. A
+stale sha here means the marketplace manifest was not bumped — the release
+shipped to nobody. Then check one of each wiring kind:
+
+- **Command:** `/agy:setup` resolves and reports `ready: true`.
+- **Agent:** `/agy:delegate` with a trivial task returns agy's output.
+- **Hook:** confirm the `SessionStart` hook fired — a `<session-id>.json` under
+  `~/.agy-plugin/sessions/` for the new session. Without it `/agy:transfer`
+  cannot find a transcript.
+
+A command that does not resolve, or an agent that is not offered, means a
+manifest or frontmatter problem that no amount of local testing would surface.
 
 ## Cleanup
 
