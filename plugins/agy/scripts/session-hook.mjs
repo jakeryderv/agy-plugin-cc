@@ -3,13 +3,16 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stateDir } from './lib/jobs.mjs';
+import { isSafeSessionId } from './lib/transcript.mjs';
 
 let raw = '';
 process.stdin.on('data', (chunk) => { raw += chunk; });
 process.stdin.on('end', () => {
   try {
     const payload = JSON.parse(raw);
-    if (payload.session_id && payload.transcript_path) {
+    // The id becomes a filename; an unsafe one is refused outright rather than
+    // rewritten, so this writer and latestSession() always agree on the path.
+    if (isSafeSessionId(payload.session_id) && payload.transcript_path) {
       const dir = join(stateDir(), 'sessions');
       mkdirSync(dir, { recursive: true });
       writeFileSync(

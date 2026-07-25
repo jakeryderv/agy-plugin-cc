@@ -4,7 +4,7 @@ import {
   mkdtempSync, readFileSync, existsSync, writeFileSync, mkdirSync, utimesSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
@@ -166,6 +166,66 @@ test('jobState: dead process with no recorded status is failed', () => {
   const dead = spawnSync(process.execPath, ['-e', 'process.exit(0)']);
   const { meta } = stageJob('job-race-dead', { pid: dead.pid, exitCode: '' });
   assert.equal(jobState(meta), 'failed');
+});
+
+// A job can finish between cancelJob's state check and the signal landing.
+// Modelled by a wrapper that ignores SIGTERM and completes — on disk the end
+// state is identical to that race, which is what matters. Marking such a job
+// cancelled is permanent (it is persisted, and cancellation outranks exit
+// status), so its output would be hidden for good.
+test('cancelJob yields to a job that finished on its own', async () => {
+  const id = 'job-cancel-race';
+  const dir = join(stateDir(), 'jobs', id);
+  mkdirSync(dir, { recursive: true });
+  // A node child that installs a no-op SIGTERM handler, then completes. Using
+  // bash + `sleep` here was flaky: the signal reaches the `sleep` child even
+  // when bash traps it, so whether the job "finished on its own" depended on
+  // run context rather than on the code under test.
+  const child = spawn(process.execPath, ['-e', `
+    process.on('SIGTERM', () => {});
+    setTimeout(() => {
+      const fs = require('node:fs');
+      fs.writeFileSync(${JSON.stringify(join(dir, 'output.log'))}, 'job-output\\n');
+      fs.writeFileSync(${JSON.stringify(join(dir, 'exit-code'))}, '0\\n');
+      process.exit(0);
+    }, 600);
+  `], { detached: true, stdio: 'ignore' });
+  child.unref();
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify({
+    id, task: 'race', model: null, pid: child.pid, cwd: process.cwd(),
+    createdAt: new Date().toISOString(), cancelled: false,
+  }));
+
+  // Let the child finish booting so its SIGTERM handler is installed — a
+  // signal delivered mid-startup takes the default action and kills it, which
+  // would make this a test of node's boot time rather than of cancelJob.
+  // Mirrors the 200ms wait in 'cancelJob kills a running job'.
+  await sleep(200);
+  assert.equal(jobState(getJob(id)), 'running');
+  const r = await cancelJob(id);
+  assert.equal(r.state, 'done', 'a job that exited 0 must not be reported cancelled');
+  assert.equal(getJob(id).cancelled, false, 'cancelled must not be persisted');
+
+  const res = jobResult(id);
+  assert.equal(res.state, 'done');
+  assert.equal(res.exitCode, 0);
+  assert.match(res.output, /job-output/);
+});
+
+test('cancelJob still cancels a job that records nothing', async () => {
+  const id = 'job-cancel-real';
+  const dir = join(stateDir(), 'jobs', id);
+  mkdirSync(dir, { recursive: true });
+  const child = spawn('bash', ['-c', 'sleep 30'], { detached: true, stdio: 'ignore' });
+  child.unref();
+  writeFileSync(join(dir, 'meta.json'), JSON.stringify({
+    id, task: 'real', model: null, pid: child.pid, cwd: process.cwd(),
+    createdAt: new Date().toISOString(), cancelled: false,
+  }));
+
+  const r = await cancelJob(id);
+  assert.equal(r.state, 'cancelled');
+  assert.equal(getJob(id).cancelled, true);
 });
 
 test('jobState: nonzero exit code still reports failed', () => {

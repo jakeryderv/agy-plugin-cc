@@ -67,6 +67,41 @@ test('extractTurns keeps text turns, drops tool noise, respects budgets', () => 
   assert.ok(budget.length < 3);
 });
 
+test('latestSession ignores an unsafe CLAUDE_SESSION_ID', () => {
+  // A hostile value must not be used to build a read path outside sessions/.
+  for (const evil of ['../../escaped', '../s-new', 'a/b', '..', '']) {
+    process.env.CLAUDE_SESSION_ID = evil;
+    try {
+      // Falls through to the cwd scan rather than resolving the evil path.
+      assert.equal(latestSession('/proj/b').sessionId, 's-new');
+    } finally {
+      delete process.env.CLAUDE_SESSION_ID;
+    }
+  }
+});
+
+test('extractTurns budget counts encoded bytes, not string length', () => {
+  // Each of these characters is 1 JS string unit but 3 UTF-8 bytes, so a
+  // length-based budget overshoots by 3x.
+  const wide = '日'.repeat(1000);
+  const lines = [];
+  for (let i = 0; i < 10; i++) {
+    lines.push(JSON.stringify({ type: 'user', message: { content: wide } }));
+  }
+  const p = join(process.env.AGY_PLUGIN_STATE_DIR, 'wide.jsonl');
+  writeFileSync(p, lines.join('\n'));
+
+  const maxBytes = 6000;
+  const turns = extractTurns(p, { maxBytes });
+  const bytes = turns.reduce((n, t) => n + Buffer.byteLength(t.text, 'utf8'), 0);
+  // One turn is always retained even if it alone exceeds the budget; beyond
+  // that the retained text must fit.
+  if (turns.length > 1) {
+    assert.ok(bytes <= maxBytes, `retained ${bytes} encoded bytes, budget ${maxBytes}`);
+  }
+  assert.ok(turns.length < 10, 'some turns must have been dropped');
+});
+
 test('buildHandoffPrompt embeds turns and waits for user', () => {
   const prompt = buildHandoffPrompt(
     [{ role: 'user', text: 'q1' }, { role: 'assistant', text: 'a1' }],

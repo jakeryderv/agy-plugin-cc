@@ -11,30 +11,10 @@ is noted. Severity ordering is roughly worst-first.
 
 ## Reproduced defects
 
-- **cancel/complete race — mislabels a successful job, permanently.**
-  `cancelJob()` checks state, signals the process group, waits out the grace
-  period, then sets `cancelled = true` **unconditionally** — it never re-checks
-  whether an exit status appeared meanwhile. A job that completed during that
-  window is written to disk as cancelled. Reproduced: a job that exited 0 with
-  its output on disk reports `state: cancelled`, `exitCode: 0`,
-  `output: "hello-from-job"` — an incoherent triple, and `/agy:status` shows
-  only `cancelled`.
-  *Correction:* the original entry called this a "narrow window". The window is
-  narrow, but the consequence is **not transient** — `cancelled` is persisted to
-  `meta.json`, and cancellation outranks exit status in state derivation, so
-  the job is mislabelled forever and its output is effectively hidden.
-  Fix: re-read the exit status after the grace wait and prefer a recorded
-  terminal state over marking cancelled.
-
-- **session file name unsanitized — writes outside the state directory.**
-  `session-hook.mjs` interpolates `session_id` straight into a path. Reproduced
-  with `session_id: "../../escaped"`: the hook exits 0 and writes
-  `/tmp/escaped.json` — two levels above the intended `sessions/` directory and
-  outside the state root entirely, with `sessions/` left empty.
-  Exposure remains low: ids come from Claude Code, not from user input, so
-  reaching this needs a malformed or hostile id from the harness itself. The
-  mechanism, though, is real rather than theoretical. Fix: reject or encode any
-  id that isn't a plain filename before using it as one.
+_The audit reproduced four. Three were fixed in v0.1.3 — the cancel/complete
+race, the session-id path traversal, and the 3× transfer-budget overshoot. The
+one below remains, deferred because the fix is a design decision rather than a
+correction._
 
 - **ARG_MAX ceiling on review diffs — ~128 KiB, not multi-MB.**
   Review embeds the diff in agy's argv. Measured on Linux: diffs of 62 KB,
@@ -50,15 +30,6 @@ is noted. Severity ordering is roughly worst-first.
   Beyond the size, the failure is unactionable: the user sees a raw
   `spawnSync … E2BIG` with no indication the diff was too large. Fix: pass the
   prompt via stdin or a temp file; failing that, detect the size and say so.
-
-- **extractTurns byte budget counts UTF-16 units — 3× overshoot measured.**
-  The budget compares `text.length` (JS string length) against `maxBytes`.
-  Measured with CJK text: a 16000-"byte" budget retained 16000 characters =
-  **48000 real bytes, 3.00×** the intended limit. ASCII is unaffected;
-  worst case is 3× for most non-Latin scripts and 4× for astral characters.
-  Fix: measure with `Buffer.byteLength(text, 'utf8')`.
-
-## Verified as described
 
 - **(c) permissive model validation on `listModels` failure.** Confirmed: with
   a binary whose `models` call exits non-zero, `listModels()` returns null and

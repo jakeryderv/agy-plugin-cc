@@ -195,6 +195,16 @@ export async function cancelJob(id) {
       process.kill(-meta.pid, 'SIGKILL');
     } catch { /* already dead */ }
   }
+  // The job may have finished under its own power between the state check
+  // above and the signal landing. A signalled wrapper dies before reaching its
+  // `echo $? > exit-code`, so a recorded status can only mean the job
+  // completed on its own — and its own verdict outranks our intent to cancel.
+  // Marking it cancelled would persist a wrong terminal state permanently
+  // (cancellation outranks exit status on read) and hide its output.
+  const recorded = readExitCode(id);
+  if (recorded !== null) {
+    return { id, state: recorded === 0 ? 'done' : 'failed' };
+  }
   meta.cancelled = true;
   writeFileSync(metaPath(id), JSON.stringify(meta, null, 2));
   return { id, state: 'cancelled' };
