@@ -36,7 +36,7 @@ test('startJob runs to done and result includes output + conversation id', async
   assert.equal(r.exitCode, 0);
   assert.match(r.output, /fake-agy: say hello/);
   assert.match(r.output, /mode=sandbox/); // sandbox by default
-  assert.equal(r.conversationId, 'conv-fake-1234');
+  assert.equal(r.conversationId, 'facade00-1111-4222-8333-444455556666');
 });
 
 test('full-access opts out of sandbox', async () => {
@@ -125,7 +125,48 @@ test('getJob unknown id throws', async () => {
   assert.throws(() => getJob('job-nope'), UsageError);
 });
 
-test('extractConversationId finds last id, tolerates absence', () => {
-  assert.equal(extractConversationId('x conversation_id=abc-1 y\nconversation_id=def-2'), 'def-2');
+// Verbatim excerpt of a real agy 1.1.7 --log-file, captured from a background
+// job during the v0.1.0 smoke pass. Kept literal on purpose: the original
+// extractConversationId was written against a synthetic `conversation_id=x`
+// format agy never emits, which is how it passed tests while returning garbage
+// against every real log.
+const REAL_AGY_LOG = [
+  'I0725 10:47:15.230593 100946 printmode.go:108] Print mode: starting (promptLength=50, model="gemini-3.6-flash-low", conversationID="")',
+  'I0725 10:47:17.710700 100946 conversation_manager.go:373] Starting new conversation (agent=false)',
+  'I0725 10:47:17.727463 100946 server.go:997] Created conversation 64bb96ef-8a49-4c85-9d5b-c321f9ee6512',
+  'I0725 10:47:17.727898 100946 conversation_manager.go:420] project: switching to conversation belonging to project ID: default-cli-project',
+  'I0725 10:47:17.728205 100946 printmode.go:232] Print mode: conversation=64bb96ef-8a49-4c85-9d5b-c321f9ee6512, sending message',
+].join('\n');
+
+const UUID_A = '64bb96ef-8a49-4c85-9d5b-c321f9ee6512';
+const UUID_B = '0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0';
+
+test('extractConversationId recovers the id from a real agy log', () => {
+  assert.equal(extractConversationId(REAL_AGY_LOG), UUID_A);
+});
+
+test('extractConversationId never returns a non-id token', () => {
+  // The empty `conversationID=""` decoy plus the next line's glog prefix is
+  // exactly what made the old pattern return 'I0725' on every real run.
+  const decoy = [
+    'I0725 10:47:15.230593 100946 printmode.go:108] Print mode: starting (conversationID="")',
+    'I0725 10:47:15.230600 100946 server.go:545] Language server will attempt to listen',
+  ].join('\n');
+  assert.equal(extractConversationId(decoy), null);
+  assert.notEqual(extractConversationId(REAL_AGY_LOG), 'I0725');
+});
+
+test('extractConversationId returns null when no id is present', () => {
+  assert.equal(extractConversationId(''), null);
   assert.equal(extractConversationId('nothing here'), null);
+  // A conversation UUID must be a UUID — a bare word is not an id.
+  assert.equal(extractConversationId('Created conversation banana'), null);
+});
+
+test('extractConversationId returns the last conversation referenced', () => {
+  const two = [
+    `I0725 10:47:17.727463 100946 server.go:997] Created conversation ${UUID_A}`,
+    `I0725 10:47:19.100000 100946 conversation_manager.go:587] Streaming conversation ${UUID_B}`,
+  ].join('\n');
+  assert.equal(extractConversationId(two), UUID_B);
 });

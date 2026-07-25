@@ -38,7 +38,7 @@ test('job lifecycle: start -> status -> result', async () => {
   assert.equal(state, 'done');
   const result = JSON.parse(run(['job-result', started.jobId]).stdout);
   assert.match(result.output, /fake-agy: summarize the repo/);
-  assert.equal(result.conversationId, 'conv-fake-1234');
+  assert.equal(result.conversationId, 'facade00-1111-4222-8333-444455556666');
   const list = JSON.parse(run(['job-status']).stdout);
   assert.ok(list.jobs.some((j) => j.id === started.jobId));
 });

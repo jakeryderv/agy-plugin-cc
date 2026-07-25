@@ -10,8 +10,10 @@ Run:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" transfer $ARGUMENTS
 ```
 
-From the JSON: report how many turns were transferred, show agy's acknowledgement
-(`response`), and give the user the `conversationId` with the exact follow-up
-command: `/agy:resume <conversationId> <your next message>`. If it fails because
-no session is known, explain the SessionStart hook records transcripts and a
-fresh session is needed.
+From the JSON: report how many turns were transferred and show agy's
+acknowledgement (`response`). If `conversationId` is non-null, give the user the
+exact follow-up command: `/agy:resume <conversationId> <your next message>`. If
+it is null, say the transfer landed but no resumable conversation id was found
+in agy's log, and that `/agy:resume <your next message>` continues the most
+recent conversation instead. If it fails because no session is known, explain
+the SessionStart hook records transcripts and a fresh session is needed.

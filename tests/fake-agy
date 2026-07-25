@@ -2,6 +2,9 @@
 // Minimal stand-in for the real agy CLI, used by the test suite only.
 const { appendFileSync } = require('node:fs');
 
+// Same shape agy really emits (canonical UUID); tests assert on this value.
+const FAKE_CONVERSATION_ID = 'facade00-1111-4222-8333-444455556666';
+
 const argv = process.argv.slice(2);
 
 if (argv[0] === '--version') {
@@ -30,7 +33,18 @@ for (let i = 0; i < argv.length; i++) {
 
 const sleepMs = Number(process.env.FAKE_AGY_SLEEP_MS || 0);
 setTimeout(() => {
-  if (logFile) appendFileSync(logFile, 'INFO conversation_id=conv-fake-1234\n');
+  // Mirror the shape of a real agy --log-file: glog-prefixed lines, an empty
+  // conversationID="" on the print-mode startup line, and the id itself as a
+  // UUID on a later "conversation" line. A stub that invents its own format is
+  // how the conversation-id extractor shipped broken.
+  if (logFile) {
+    appendFileSync(logFile, [
+      'I0725 10:47:15.230593 100946 printmode.go:108] Print mode: starting (promptLength=1, conversationID="")',
+      `I0725 10:47:17.727463 100946 server.go:997] Created conversation ${FAKE_CONVERSATION_ID}`,
+      `I0725 10:47:17.728205 100946 printmode.go:232] Print mode: conversation=${FAKE_CONVERSATION_ID}, sending message`,
+      '',
+    ].join('\n'));
+  }
   console.log(`fake-agy: ${prompt} [model=${model}] [mode=${mode}]`);
   process.exit(prompt.includes('FAIL') ? 3 : 0);
 }, sleepMs);

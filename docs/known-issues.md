@@ -2,8 +2,11 @@
 
 Triaged at the v0.1.0 final review as acceptable to ship; each is a candidate
 `/opsx:propose` change. Remove entries as they're fixed (the fix's OpenSpec
-change is the record). Letters match the original build ledger; (a) and (g)
-are already fixed.
+change is the record). Letters match the original build ledger; (a), (g), and
+(h) are already fixed.
+
+Entries marked **[confirmed]** were reproduced against the real agy CLI during
+the 2026-07-25 smoke pass; the rest remain analysis-only.
 
 - **(b) exit-code file read race** — `jobState()` can read the exit-code file
   in the window after bash creates it but before the digit lands, parsing an
@@ -13,18 +16,16 @@ are already fixed.
   `agy models` fails, `validateModel()` accepts any model string
   (deliberate: availability outage shouldn't block runs), so typos surface as
   agy errors instead of the friendly exit-64 list.
-- **(d) review validates model before empty-diff check** — `/agy:review` with
-  an unknown model and an empty diff spends a live `agy models` call before
-  reporting the empty diff.
-- **(e) empty-diff message imprecise outside a git repo** — review's "working
-  tree has no changes" error is misleading when the cwd isn't a git repo at
-  all.
+- **(d) review validates model before empty-diff check** *[confirmed]* —
+  `/agy:review` with an unknown model and an empty diff spends a live
+  `agy models` call (~1.3s) before reporting the empty diff.
+- **(e) empty-diff message imprecise outside a git repo** *[confirmed]* —
+  outside a git repo, review reports "no changes to review (git diff HEAD and
+  git diff are both empty)" when in fact both git invocations failed. The two
+  cases are indistinguishable to the user.
 - **(f) jobSummary state-fallback contract undocumented** — `jobSummary()`
   falls back to `meta.state` when lazy derivation returns nothing; the
   precedence isn't documented in the module.
-- **(h) resume conversation-id heuristic is fuzzy** — `/agy:resume` recovers
-  conversation ids from log text by regex; unusual log formats can surface a
-  wrong id. Mitigated by `extractConversationId` taking the last match.
 - **session file name unsanitized** — `session-hook.mjs` uses `session_id`
   verbatim as a filename; a hostile/malformed id could path-escape. Ids come
   from Claude Code itself, so exposure is theoretical.

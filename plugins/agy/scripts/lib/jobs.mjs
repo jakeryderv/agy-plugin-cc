@@ -118,10 +118,26 @@ export function listJobs() {
   return out;
 }
 
+// agy records its conversation id as a canonical UUID on log lines that
+// mention "conversation" (`Created conversation <uuid>`, `conversation=<uuid>`)
+// — never as `conversation_id=<x>`. See the REAL_AGY_LOG fixture in
+// tests/jobs.test.mjs for the reference format.
+//
+// Matching is line-scoped and requires the UUID shape, which is what keeps the
+// empty `conversationID=""` startup line from pairing with a token on the
+// following line. Returning null for anything unrecognized is deliberate: a
+// wrong id sends --conversation to a nonexistent thread, which is worse for the
+// user than being told no id was found.
+const CONVERSATION_UUID_RE =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
 export function extractConversationId(text) {
-  const re = /conversation[_ -]?id[^a-z0-9-]*([a-z0-9][a-z0-9-]{3,})/gi;
   let match = null;
-  for (const m of text.matchAll(re)) match = m[1];
+  for (const line of String(text ?? '').split('\n')) {
+    if (!/conversation/i.test(line)) continue;
+    const m = line.match(CONVERSATION_UUID_RE);
+    if (m) match = m[0]; // last conversation referenced wins
+  }
   return match;
 }
 

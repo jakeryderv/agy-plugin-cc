@@ -45,7 +45,7 @@ test('transfer builds handoff, runs agy, returns conversation id', () => {
   const r = run(['transfer'], state);
   assert.equal(r.status, 0);
   const j = JSON.parse(r.stdout);
-  assert.equal(j.conversationId, 'conv-fake-1234');
+  assert.equal(j.conversationId, 'facade00-1111-4222-8333-444455556666');
   assert.equal(j.turns, 2);
   assert.match(j.response, /taking over a coding session/);
   assert.match(j.response, /mode=sandbox/);
