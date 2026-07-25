@@ -39,8 +39,14 @@ function taskFlags(flags, bin) {
   };
 }
 
-function streamAgy(bin, agyArgs) {
+// onTooLarge, when given, handles the case where the prompt exceeds what the
+// platform accepts as a single argv element. Detected from the failed spawn
+// rather than predicted: the per-argument cap is a Linux constant that macOS
+// does not share, so a hardcoded threshold would refuse work macOS can do.
+// execve rejects before the binary starts, so this costs nothing.
+function streamAgy(bin, agyArgs, onTooLarge) {
   const r = spawnSync(bin, agyArgs, { stdio: 'inherit' });
+  if (r.error?.code === 'E2BIG' && onTooLarge) onTooLarge();
   if (r.error) process.stderr.write(`${r.error.message}\n`);
   process.exit(r.status ?? 1);
 }
@@ -110,22 +116,96 @@ simpler or safer approach exists, and probe edge cases the author likely
 missed. Be specific and technical, not contrarian for its own sake. Findings
 need file/line and a concrete scenario. Do not modify any files.`;
 
+const kb = (n) => `${Math.round(n / 1024)} KB`;
+
+// Per-path diff sizes, largest first. Used only to explain an oversized diff,
+// so a path that fails to measure is simply omitted rather than fatal.
+// revArgs is the revision part (`diff HEAD` or `diff`); pathArgs is the
+// pathspec part, kept separate because `--name-only` must precede `--`.
+function diffSizesByPath(revArgs, pathArgs) {
+  const listed = spawnSync('git', [...revArgs, '--name-only', ...pathArgs], { encoding: 'utf8' }).stdout || '';
+  const paths = listed.split('\n').map((p) => p.trim()).filter(Boolean);
+  const sized = [];
+  for (const path of paths) {
+    const out = spawnSync('git', [...revArgs, '--', path], { encoding: 'utf8' }).stdout;
+    if (typeof out === 'string') sized.push({ path, bytes: Buffer.byteLength(out, 'utf8') });
+  }
+  return sized.sort((a, b) => b.bytes - a.bytes);
+}
+
+// agy accepts a prompt only as argv, so a diff past the platform's
+// per-argument limit cannot be delivered at all. Report what is there and what
+// would fit; never review part of it, since a partial review that finds
+// nothing reads as a clean bill of health.
+function reportOversizedDiff(diff, revArgs, pathArgs, overheadBytes) {
+  const total = Buffer.byteLength(diff, 'utf8');
+  const files = diffSizesByPath(revArgs, pathArgs);
+  const lines = [
+    `diff is ${kb(total)} — too large to pass to agy in one call.`,
+    '',
+  ];
+  for (const f of files) lines.push(`  ${kb(f.bytes).padStart(8)}  ${f.path}`);
+
+  // Fit smallest-first against a budget derived from what actually failed, so
+  // the suggestion stays honest without hardcoding a platform constant.
+  const budget = Math.max(0, total - overheadBytes);
+  const fits = [];
+  let used = 0;
+  for (const f of [...files].reverse()) {
+    if (used + f.bytes > budget) break;
+    used += f.bytes;
+    fits.push(f.path);
+  }
+  if (fits.length && fits.length < files.length) {
+    lines.push('', `these fit:  /agy:review -- ${fits.join(' ')}`);
+  } else {
+    lines.push('', 'narrow the scope with:  /agy:review -- <paths>');
+  }
+  process.stderr.write(`${lines.join('\n')}\n`);
+  process.exit(1);
+}
+
 function cmdReview(argv) {
-  const { flags, positional } = parseArgs(argv, {
+  // `--` separates reviewer focus from path scoping, matching git's own
+  // convention: `/agy:review some focus` steers attention, `/agy:review -- src`
+  // limits which paths are diffed. Split before parseArgs, which would
+  // otherwise fold the paths into the focus text.
+  const sep = argv.indexOf('--');
+  const paths = sep === -1 ? [] : argv.slice(sep + 1);
+  const { flags, positional } = parseArgs(sep === -1 ? argv : argv.slice(0, sep), {
     adversarial: 'flag',
     model: 'value',
     effort: 'value',
   });
+  const pathArgs = paths.length ? ['--', ...paths] : [];
   const bin = requireAgy();
-  const opts = taskFlags(flags, bin);
-  let diff = spawnSync('git', ['diff', 'HEAD'], { encoding: 'utf8' }).stdout || '';
-  if (!diff.trim()) {
-    diff = spawnSync('git', ['diff'], { encoding: 'utf8' }).stdout || '';
-  }
-  if (!diff.trim()) {
-    process.stderr.write('no changes to review (git diff HEAD and git diff are both empty)\n');
+  // Local, free flag validation stays here so a malformed command fails at
+  // once; the model check needs a live `agy models` call and waits until the
+  // local preconditions below have had their say.
+  validateModelEffortCombo(flags.model, flags.effort);
+  if (flags.effort) validateEffort(flags.effort);
+
+  const inWorkTree = spawnSync('git', ['rev-parse', '--is-inside-work-tree'], { encoding: 'utf8' });
+  if ((inWorkTree.stdout || '').trim() !== 'true') {
+    process.stderr.write('not inside a git repository — review works on a git working-tree diff.\n');
     process.exit(1);
   }
+
+  let revArgs = ['diff', 'HEAD'];
+  let diff = spawnSync('git', [...revArgs, ...pathArgs], { encoding: 'utf8' }).stdout || '';
+  if (!diff.trim()) {
+    revArgs = ['diff'];
+    diff = spawnSync('git', [...revArgs, ...pathArgs], { encoding: 'utf8' }).stdout || '';
+  }
+  if (!diff.trim()) {
+    process.stderr.write(paths.length
+      ? `no changes to review under ${paths.join(' ')}.\n`
+      : 'no changes to review — the working tree matches HEAD.\n');
+    process.exit(1);
+  }
+
+  if (flags.model) validateModel(bin, flags.model);
+
   const intro = flags.adversarial ? ADVERSARIAL_INTRO : REVIEW_INTRO;
   const focus = positional.join(' ').trim();
   const prompt = [
@@ -133,7 +213,13 @@ function cmdReview(argv) {
     focus ? `\nReviewer focus: ${focus}` : '',
     '\nDiff:\n```diff\n' + diff + '\n```',
   ].join('\n');
-  streamAgy(bin, buildAgyArgs({ prompt, ...opts, fullAccess: false }));
+
+  const overhead = Buffer.byteLength(prompt, 'utf8') - Buffer.byteLength(diff, 'utf8');
+  streamAgy(bin, buildAgyArgs({
+    prompt,
+    ...taskFlags(flags, bin),
+    fullAccess: false,
+  }), () => reportOversizedDiff(diff, revArgs, pathArgs, overhead));
 }
 
 function cmdJobStart(argv) {

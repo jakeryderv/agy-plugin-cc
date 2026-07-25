@@ -89,6 +89,91 @@ test('review embeds the git diff, always sandboxed', () => {
   assert.match(r.stdout, /focus on correctness/);
 });
 
+function initRepo() {
+  const repo = mkdtempSync(join(tmpdir(), 'agy-repo-'));
+  spawnSync('git', ['init', '-q'], { cwd: repo });
+  spawnSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: repo });
+  return repo;
+}
+
+test('review outside a git work tree says so, not "no changes"', () => {
+  const notRepo = mkdtempSync(join(tmpdir(), 'agy-notrepo-'));
+  const r = run(['review'], { cwd: notRepo });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /git|work tree|repositor/i);
+  // The old message claimed the tree was clean, which is a different fact.
+  assert.doesNotMatch(r.stderr, /no changes to review/i);
+});
+
+// agy takes a prompt only as argv, so a diff past the platform's per-argument
+// limit cannot be delivered at all. The user used to get `spawnSync ... E2BIG`,
+// which names the binary and never mentions the diff.
+test('oversized diff is explained, and no partial review is run', () => {
+  const repo = initRepo();
+  // Comfortably past MAX_ARG_STRLEN (131072) so this trips on any Linux runner.
+  const big = Array.from({ length: 4000 }, (_, i) => `line ${i} ${'a'.repeat(60)}`).join('\n');
+  writeFileSync(join(repo, 'big.txt'), `${big}\n`);
+  writeFileSync(join(repo, 'small.txt'), 'one small line\n');
+  spawnSync('git', ['add', '.'], { cwd: repo });
+
+  const r = run(['review'], { cwd: repo });
+  assert.equal(r.status, 1);
+  assert.doesNotMatch(r.stderr, /^spawnSync .* E2BIG$/m, 'raw spawn error must not be the whole message');
+  assert.match(r.stderr, /too large|exceeds/i);
+  assert.match(r.stderr, /big\.txt/, 'per-file breakdown should name the offending file');
+  assert.match(r.stderr, /small\.txt/, 'suggested narrower scope should name what fits');
+  // Nothing was reviewed: the stub echoes its prompt, so its absence proves it.
+  assert.doesNotMatch(r.stdout, /fake-agy:/);
+});
+
+// The oversized-diff message suggests `/agy:review -- <paths>`, so that has to
+// actually scope the diff. Before this change it was folded into the reviewer
+// focus text and the diff stayed unfiltered — a suggestion that silently did
+// the wrong thing.
+test('`--` scopes the diff to paths rather than becoming focus text', () => {
+  const repo = initRepo();
+  writeFileSync(join(repo, 'keep.txt'), 'reviewed content here\n');
+  writeFileSync(join(repo, 'skip.txt'), 'excluded content here\n');
+  spawnSync('git', ['add', '.'], { cwd: repo });
+
+  const scoped = run(['review', '--', 'keep.txt'], { cwd: repo });
+  assert.equal(scoped.status, 0);
+  assert.match(scoped.stdout, /reviewed content here/);
+  assert.doesNotMatch(scoped.stdout, /excluded content here/, 'skip.txt must not be in the diff');
+  assert.doesNotMatch(scoped.stdout, /Reviewer focus: keep\.txt/, 'paths must not become focus text');
+
+  // Focus without `--` still works and still reviews everything.
+  const focused = run(['review', 'off-by-one risks'], { cwd: repo });
+  assert.equal(focused.status, 0);
+  assert.match(focused.stdout, /Reviewer focus: off-by-one risks/);
+  assert.match(focused.stdout, /excluded content here/);
+});
+
+test('scoping to paths with no changes says so', () => {
+  const repo = initRepo();
+  writeFileSync(join(repo, 'a.txt'), 'x\n');
+  spawnSync('git', ['add', '.'], { cwd: repo });
+  const r = run(['review', '--', 'nonexistent-path'], { cwd: repo });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /nonexistent-path/);
+});
+
+test('empty diff is reported without paying for a model listing', () => {
+  const repo = initRepo();
+  const r = run(['review', '--model', 'definitely-not-a-model'], { cwd: repo });
+  assert.equal(r.status, 1, 'the empty diff should decide this, not the model');
+  assert.match(r.stderr, /no changes|nothing to review/i);
+  assert.doesNotMatch(r.stderr, /unknown model/i);
+});
+
+test('malformed review flags still fail fast as usage errors', () => {
+  const repo = initRepo();
+  const both = run(['review', '--model', 'fake-pro', '--effort', 'high'], { cwd: repo });
+  assert.equal(both.status, 64);
+  const badEffort = run(['review', '--effort', 'extreme'], { cwd: repo });
+  assert.equal(badEffort.status, 64);
+});
+
 test('review with no diff fails with guidance', () => {
   const repo = mkdtempSync(join(tmpdir(), 'agy-repo-'));
   spawnSync('git', ['init', '-q'], { cwd: repo });
