@@ -61,6 +61,23 @@ export function validateEffort(effort) {
   }
 }
 
+// agy accepts no --model/--effort pairing: models that support tiering encode
+// it in the name (gemini-3.6-flash-low) and conflict with --effort, and the
+// ones that don't (claude-sonnet-4-6) reject the flag outright. Caught here so
+// no live call is spent learning that. A blanket rule rather than a per-model
+// one on purpose — parsing tier suffixes would bake agy's naming scheme into
+// the plugin and would still be wrong for the untiered models.
+export function validateModelEffortCombo(model, effort) {
+  if (model && effort) {
+    throw new UsageError(
+      `--model and --effort cannot be used together (got --model "${model}" --effort "${effort}").\n`
+      + '  agy carries the effort tier in the model name, so pick one:\n'
+      + `  --model <name> with the tier you want (e.g. a "-${effort}" variant, see \`agy models\`), or\n`
+      + `  --effort ${effort} on its own to set the tier for the default model.`,
+    );
+  }
+}
+
 export function buildAgyArgs(opts) {
   const args = ['-p', opts.prompt];
   if (opts.model) args.push('--model', opts.model);

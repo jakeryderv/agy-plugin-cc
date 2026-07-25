@@ -13,7 +13,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" run [flags] "<task>"
 ```
 
 - Forward `--model`, `--effort`, and `--full-access` flags if they were in the
-  task string; everything else is the task text, preserved verbatim.
+  task string; everything else is the task text, preserved verbatim. Never add
+  `--effort` to a request that already carries `--model` (or the reverse) —
+  agy rejects the pair, since the model name already encodes the tier.
 - Never add `--full-access` on your own initiative.
 - Return the command's stdout exactly as it came back — no paraphrasing, no
   commentary, no follow-up actions. If it fails, return the error output and

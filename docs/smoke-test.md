@@ -127,7 +127,25 @@ Expect a non-zero `turns` count, an acknowledgement showing agy understood the
 session context, and — **format-dependent** — a UUID `conversationId`, subject
 to the same check as step 4.
 
-### 9. Edge paths (no quota)
+### 9. Flag combinations **[quota]**
+
+Individual flags being accepted does not mean they compose. `--effort` shipped
+on every invocation for a full release before anyone sent it to a real agy.
+
+```bash
+node plugins/agy/scripts/agy-companion.mjs run --effort low "Reply with exactly: OK"
+node plugins/agy/scripts/agy-companion.mjs run --model <name> --effort high "x"
+```
+
+Expect the first to succeed. Expect the second to be **rejected locally with
+exit 64** — agy accepts no `--model`/`--effort` pairing, so the plugin catches
+it before spending a call.
+
+**If agy ever starts accepting the combination**, that local rejection becomes
+wrong and `validateModelEffortCombo()` should be removed. Checking here is how
+that gets noticed.
+
+### 10. Edge paths (no quota)
 
 ```bash
 cd "$(mktemp -d)" && node <repo>/plugins/agy/scripts/agy-companion.mjs review

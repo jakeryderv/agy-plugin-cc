@@ -39,8 +39,12 @@ minus the app-server: agy has no server mode, so background jobs are detached
 | `/agy:transfer` | Seed a new agy conversation from your Claude session |
 | `/agy:models` | List available models |
 
-Every task command accepts `--model <name>` (validated against live
-`agy models` output) and `--effort low|medium|high`.
+Every task command accepts **either** `--model <name>` (validated against live
+`agy models` output) **or** `--effort low|medium|high` — not both. agy carries
+the effort tier in the model name (`gemini-3.6-flash-low`,
+`gemini-3.1-pro-high`), so `--model` already selects a tier; `--effort` on its
+own sets the tier for the default model. Passing both is rejected with an
+explanation.
 
 ## Safety model
 

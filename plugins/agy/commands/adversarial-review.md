@@ -1,6 +1,6 @@
 ---
 description: Adversarial Antigravity (Gemini) review that challenges the design of the current diff
-argument-hint: "[--model <name>] [--effort low|medium|high] [stance]"
+argument-hint: "[--model <name> | --effort low|medium|high] [stance]"
 allowed-tools: Bash(node:*)
 ---
 

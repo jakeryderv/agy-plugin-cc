@@ -113,3 +113,27 @@ test('unknown subcommand exits 64', () => {
   const r = run(['bogus']);
   assert.equal(r.status, 64);
 });
+
+// Real agy rejects every --model/--effort pairing, so catching it locally
+// saves a live call and explains what to do instead.
+test('model plus effort is rejected before agy is invoked', () => {
+  for (const args of [
+    ['run', '--model', 'fake-pro', '--effort', 'high', 'hi'],
+    ['job-start', '--model', 'fake-pro', '--effort', 'low', 'hi'],
+    ['review', '--model', 'fake-pro', '--effort', 'medium'],
+  ]) {
+    const r = run(args);
+    assert.equal(r.status, 64, `expected 64 for ${args.join(' ')}, got ${r.status}`);
+    assert.match(r.stderr, /--model/);
+    assert.match(r.stderr, /--effort/);
+    // fake-agy echoes its prompt; absence proves no run was attempted.
+    assert.doesNotMatch(r.stdout, /fake-agy:/);
+  }
+});
+
+test('either flag alone still runs', () => {
+  const withModel = run(['run', '--model', 'fake-pro', 'hi']);
+  assert.equal(withModel.status, 0);
+  const withEffort = run(['run', '--effort', 'high', 'hi']);
+  assert.equal(withEffort.status, 0);
+});

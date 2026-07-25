@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-  findAgy, agyVersion, listModels, validateModel, validateEffort, buildAgyArgs,
+  findAgy, agyVersion, listModels, validateModel, validateEffort,
+  validateModelEffortCombo, buildAgyArgs,
 } from '../plugins/agy/scripts/lib/agy.mjs';
 import { UsageError } from '../plugins/agy/scripts/lib/args.mjs';
 
@@ -32,6 +33,22 @@ test('validateEffort accepts low|medium|high only', () => {
   validateEffort('low');
   validateEffort('high');
   assert.throws(() => validateEffort('max'), UsageError);
+});
+
+// agy 1.1.7 accepts no combination of the two: tiered models encode the tier in
+// the name (gemini-3.6-flash-low) and conflict with --effort; untiered ones
+// (claude-sonnet-4-6) reject the flag outright.
+test('validateModelEffortCombo rejects both flags together', () => {
+  assert.throws(() => validateModelEffortCombo('gemini-3.6-flash-low', 'high'), UsageError);
+  assert.throws(() => validateModelEffortCombo('claude-sonnet-4-6', 'low'), /--effort/);
+  assert.throws(() => validateModelEffortCombo('any-model', 'medium'), /--model/);
+});
+
+test('validateModelEffortCombo accepts either flag alone', () => {
+  validateModelEffortCombo('gemini-3.6-flash-low', undefined);
+  validateModelEffortCombo(undefined, 'high');
+  validateModelEffortCombo(undefined, undefined);
+  validateModelEffortCombo(null, null);
 });
 
 test('buildAgyArgs: sandbox default vs full access', () => {

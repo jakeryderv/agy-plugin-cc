@@ -1,6 +1,6 @@
 ---
 description: Delegate a task to the Antigravity CLI (agy); use --background for long tasks
-argument-hint: "[--background] [--full-access] [--model <name>] [--effort low|medium|high] <task>"
+argument-hint: "[--background] [--full-access] [--model <name> | --effort low|medium|high] <task>"
 allowed-tools: Bash(node:*), Agent
 ---
 

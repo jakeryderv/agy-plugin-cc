@@ -9,5 +9,7 @@ Run:
 node "${CLAUDE_PLUGIN_ROOT}/scripts/agy-companion.mjs" models
 ```
 
-Show the list verbatim. Mention any command accepts `--model <name>` and
-`--effort low|medium|high`.
+Show the list verbatim. Mention any command accepts either `--model <name>` or
+`--effort low|medium|high`, but not both: the tier is part of the model name
+(note the `-low`/`-medium`/`-high` variants in the list), so `--model` already
+picks one. `--effort` alone sets the tier for the default model.

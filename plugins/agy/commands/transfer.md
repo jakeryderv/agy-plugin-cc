@@ -1,6 +1,6 @@
 ---
 description: Hand the current Claude Code session context to a new Antigravity conversation
-argument-hint: "[--model <name>] [--effort low|medium|high]"
+argument-hint: "[--model <name> | --effort low|medium|high]"
 allowed-tools: Bash(node:*)
 ---
 

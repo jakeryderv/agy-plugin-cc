@@ -1,6 +1,6 @@
 ---
 description: Read-only Antigravity (Gemini) review of the current working-tree diff
-argument-hint: "[--model <name>] [--effort low|medium|high] [focus]"
+argument-hint: "[--model <name> | --effort low|medium|high] [focus]"
 allowed-tools: Bash(node:*)
 ---
 

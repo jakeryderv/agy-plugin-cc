@@ -6,7 +6,8 @@ import { mkdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs, UsageError } from './lib/args.mjs';
 import {
-  findAgy, authStatus, agyVersion, listModels, validateModel, validateEffort, buildAgyArgs,
+  findAgy, authStatus, agyVersion, listModels, validateModel, validateEffort,
+  validateModelEffortCombo, buildAgyArgs,
 } from './lib/agy.mjs';
 import { startJob, listJobs, getJob, jobState, jobResult, cancelJob, stateDir, extractConversationId } from './lib/jobs.mjs';
 import { latestSession, extractTurns, buildHandoffPrompt } from './lib/transcript.mjs';
@@ -28,6 +29,7 @@ function emit(obj) {
 }
 
 function taskFlags(flags, bin) {
+  validateModelEffortCombo(flags.model, flags.effort);
   if (flags.model) validateModel(bin, flags.model);
   if (flags.effort) validateEffort(flags.effort);
   return {
