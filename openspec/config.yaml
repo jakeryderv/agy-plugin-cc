@@ -31,7 +31,10 @@ context: |
   daemon or broker; no Stop-hook review gate; macOS/Linux/WSL only; no
   quota/auth failure classification (raw agy output is surfaced instead).
 
-  Known minor issues: docs/known-issues.md (each a candidate change).
+  Known issues live in GitHub Issues, not in the repo. Each is a candidate
+  change; the `confirmed` label means it was reproduced against running code
+  and the evidence is in the issue body. Close them with `Fixes #N` in the
+  fix commit so the ledger cannot drift from the code.
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.

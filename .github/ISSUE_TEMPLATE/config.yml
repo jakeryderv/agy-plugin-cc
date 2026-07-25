@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Known issues
+    url: https://github.com/jakeryderv/agy-plugin-cc/issues?q=is%3Aissue+is%3Aopen+label%3Aconfirmed
+    about: Reproduced problems already on record, with the evidence for each. Worth a look before filing.

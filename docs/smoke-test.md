@@ -153,7 +153,7 @@ cd "$(mktemp -d)" && node <repo>/plugins/agy/scripts/agy-companion.mjs review
 
 Expect a non-zero exit and an error message. Known limitation: outside a git
 repo this reports "no changes to review" even though git failed — see
-`docs/known-issues.md` (e).
+[issue #3](https://github.com/jakeryderv/agy-plugin-cc/issues/3).
 
 ## Cleanup
 

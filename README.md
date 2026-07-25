@@ -61,13 +61,22 @@ Jobs and session pointers live under `~/.agy-plugin/` (override with
 `AGY_PLUGIN_STATE_DIR`). Job directories older than 7 days are pruned
 automatically.
 
+## Known issues
+
+Tracked in [GitHub Issues](https://github.com/jakeryderv/agy-plugin-cc/issues).
+Anything labelled [`confirmed`](https://github.com/jakeryderv/agy-plugin-cc/issues?q=is%3Aissue+is%3Aopen+label%3Aconfirmed)
+was reproduced against running code, with the evidence in the issue.
+
 ## Development
 
 ```
 node --test tests/*.test.mjs
 ```
 
-Zero npm dependencies. Tests run against `tests/fake-agy`, never the real CLI.
+Zero npm dependencies. Tests run against `tests/fake-agy`, never the real CLI —
+so the suite cannot catch the stub drifting from what `agy` actually does.
+[`docs/smoke-test.md`](docs/smoke-test.md) is the checklist against the real
+binary; run it before cutting a release.
 
 ## License
 

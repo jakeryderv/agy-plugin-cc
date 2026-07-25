@@ -1,0 +1,68 @@
+name: Bug report
+description: Something in the plugin behaves incorrectly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. The version fields matter more than usual here:
+        this plugin wraps an external CLI, and most bugs so far have come from
+        the plugin's assumptions about `agy` drifting from what `agy` actually
+        does. Knowing both versions is often what makes a report reproducible.
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      description: "From `plugins/agy/.claude-plugin/plugin.json`, or the version shown by `/plugin`."
+      placeholder: "0.1.3"
+    validations:
+      required: true
+
+  - type: input
+    id: agy-version
+    attributes:
+      label: agy version
+      description: "Output of `agy --version`."
+      placeholder: "1.1.7"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux
+        - macOS
+        - WSL
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you ran, and what you got. Include the command and any error output.
+      placeholder: |
+        $ /agy:delegate --background "..."
+        ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: setup-output
+    attributes:
+      label: "`/agy:setup` output (optional)"
+      description: "Useful for anything involving auth, model listing, or the binary not being found. It reports no credentials, only whether they resolve."
+      render: json
+    validations:
+      required: false
