@@ -18,11 +18,16 @@ minus the app-server: agy has no server mode, so background jobs are detached
 ## Install
 
 ```
-/plugin marketplace add jakeryderv/agy-plugin-cc
-/plugin install agy@agy-plugin-cc
+/plugin marketplace add jakeryderv/agent-plugins
+/plugin install agy@jakeryderv
 /reload-plugins
 /agy:setup
 ```
+
+agy ships through the [jakeryderv](https://github.com/jakeryderv/agent-plugins)
+marketplace, which indexes every plugin I maintain. If you installed from the
+`agy-plugin-cc` marketplace, remove it and reinstall using the commands above —
+that marketplace no longer carries the plugin.
 
 ## Commands
 
