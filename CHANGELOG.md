@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.2 — 2026-07-25
+
+Fixed: `--model` and `--effort` were documented as combinable, but agy accepts
+no pairing of them — tiered models carry the tier in the name
+(`gemini-3.6-flash-low`), and the untiered ones reject `--effort` outright.
+Passing both now fails locally with an explanation instead of spending a live
+call to be told. Use `--model` with the tier variant you want, or `--effort`
+alone for the default model.
+
+Hardened: the sandbox default is now enforced in the single function that
+builds agy's arguments, rather than relying on every caller to request it — no
+input other than an explicit `--full-access` can produce an unsandboxed run.
+A job that exited successfully can no longer be reported `failed` while its
+exit status is still being written.
+
+Internal: the plugin's behaviour is now specified in `openspec/specs/` across
+six capabilities; the pre-OpenSpec design doc is retired.
+
 ## 0.1.1 — 2026-07-25
 
 Fixed: `/agy:resume` did not work. `extractConversationId()` returned a log
