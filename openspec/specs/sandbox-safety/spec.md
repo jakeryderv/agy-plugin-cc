@@ -8,9 +8,10 @@ prompt for permission — so the sandbox decision is made entirely by this code,
 on the user's behalf, with no chance for them to intervene mid-run. These are
 therefore the requirements least amenable to convenience trade-offs.
 
-Note that `docs/known-issues.md` records a latent hazard here: `buildAgyArgs()`
-does not itself enforce the default — the invariant currently holds because
-every call site passes `sandbox: true`.
+The default is enforced in `buildAgyArgs()`, the single point where agy's
+arguments are constructed, rather than at the call sites — access mode there is
+a total choice with no third state, so the guarantee cannot be lost by a future
+caller omitting an option.
 
 ## Requirements
 ### Requirement: Headless agy runs are sandboxed unless full access is explicitly requested
@@ -20,6 +21,11 @@ agy's sandbox flag or its skip-permissions flag, and SHALL default to the
 sandbox. The permissive mode SHALL be selected only when the user explicitly
 asked for it; the plugin MUST NOT add it on its own initiative, infer it from
 the task text, or retry with it after a sandboxed run fails.
+
+This default SHALL be enforced where agy's arguments are constructed, not by
+the callers that construct them. The argument builder SHALL treat access mode
+as a total choice between full access and sandbox, with no third state, so that
+omitting an option cannot produce an unsandboxed run.
 
 #### Scenario: Delegation defaults to sandboxed
 - **WHEN** a task is delegated with no access flag
@@ -32,6 +38,10 @@ the task text, or retry with it after a sandboxed run fails.
 #### Scenario: A sandboxed failure is not retried with full access
 - **WHEN** a sandboxed run fails in a way that full access might have avoided
 - **THEN** the failure is reported and no escalated retry is attempted
+
+#### Scenario: Omitting every access option still sandboxes
+- **WHEN** agy arguments are built with no access option supplied at all
+- **THEN** the sandbox flag is present, and there is no combination of inputs other than an explicit full-access request that yields an invocation carrying neither flag
 
 ### Requirement: Review commands are always sandboxed
 `/agy:review` and `/agy:adversarial-review` SHALL always run sandboxed,
